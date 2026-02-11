@@ -24,45 +24,33 @@ class LoanPredictSchema(BaseModel):
     previous_loan_defaults_on_file: str
 
 
-@predict_router.post('/')
-async def predict(loan: LoanPredictSchema):
-    new_loan = loan.dict()
+@predict_router.post('/predict/')
+async def chek_loan_account(loan: LoanPredictSchema):
+    loan_dict = loan.dict()
 
-    gender = new_loan.pop('person_gender')
-    education = new_loan.pop('person_education')
-    home = new_loan.pop('person_home_ownership')
-    intent = new_loan.pop('loan_intent')
-    defaults = new_loan.pop('previous_loan_defaults_on_file')
-
-    new = [
-        new_loan['person_age'],
-        new_loan['person_income'],
-        new_loan['person_emp_exp'],
-        new_loan['loan_amnt'],
-        new_loan['loan_int_rate'],
-        new_loan['loan_percent_income'],
-        new_loan['cb_person_cred_hist_length'],
-        new_loan['credit_score'],
+    gender = loan_dict.pop('person_gender')
+    gender_1_0 = [
+        1 if gender == 'male' else 0
     ]
 
-    gender = [
-        1 if gender == 'male' else 0,
-    ]
-
-    education = [
+    education = loan_dict.pop('person_education')
+    education_1_0 = [
         1 if education == 'Bachelor' else 0,
         1 if education == 'Doctorate' else 0,
         1 if education == 'High School' else 0,
         1 if education == 'Master' else 0,
     ]
 
-    home = [
+    home = loan_dict.pop('person_home_ownership')
+    home_1_0 = [
         1 if home == 'OTHER' else 0,
         1 if home == 'OWN' else 0,
         1 if home == 'RENT' else 0,
     ]
 
-    intent = [
+
+    intent = loan_dict.pop('loan_intent')
+    intent_1_0 = [
         1 if intent == 'EDUCATION' else 0,
         1 if intent == 'HOMEIMPROVEMENT' else 0,
         1 if intent == 'MEDICAL' else 0,
@@ -70,17 +58,15 @@ async def predict(loan: LoanPredictSchema):
         1 if intent == 'VENTURE' else 0,
     ]
 
-    defaults = [
+    defaults = loan_dict.pop('previous_loan_defaults_on_file')
+    defaults1_0 = [
         1 if defaults == 'Yes' else 0,
     ]
 
-    features = new + gender + education + home + intent + defaults
 
-    neew = scaler.transform([features])
-    loan = float(model.predict_proba(neew)[0][1])
-    approved = loan >= 0.5
+    loan_data = list(loan_dict.values()) +  gender_1_0 + education_1_0 + home_1_0 + intent_1_0 + defaults1_0
 
-    return {
-        "approved": approved,
-        "probability": round(loan, 2)
-    }
+    scaled_data = scaler.transform([loan_data])
+    pred = model.predict(scaled_data)[0]
+    final_pred = "Approved" if int(pred) == 1 else 'Rejected'
+    return {"answer": final_pred}
